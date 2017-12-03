@@ -80,7 +80,7 @@
 		function fetchAndRenderEvents() {
 			$.getJSON("events.json").then(function (events) {
 				// Destroy loading spinner.
-				$('#calendar').empty().css("text-align", null);
+				$('#calendar').empty().css("text-align", "initial");
 				// Construct calendar.
 				$('#calendar').fullCalendar({
 					events: events,
