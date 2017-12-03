@@ -77,10 +77,10 @@
 	<script>
 		moment.locale(window.navigator.userLanguage || window.navigator.language);
 
-		$(document).ready(function () {
+		function fetchAndRenderEvents() {
 			$.getJSON("events.json").then(function (events) {
 				// Destroy loading spinner.
-				$('#calendar').empty();
+				$('#calendar').empty().css("text-align", null);
 				// Construct calendar.
 				$('#calendar').fullCalendar({
 					events: events,
@@ -159,8 +159,15 @@
 						});
 					}
 				});
+			}, function error(res) {
+				if (res.status === 404) {
+					$("#loader-status").html("scraping from canterbury.co.uk, may take up to a minute");
+					setTimeout(fetchAndRenderEvents, 5000);
+				}
 			});
-		});
+		}
+
+		$(document).ready(fetchAndRenderEvents);
 	</script>
 </head>
 <body>
@@ -173,13 +180,17 @@
 		</div>
 	</div>
 	</nav>
-	<div id="calendar">
-		<div id="loader-container"><img id="loader" src="loader.gif" /></div>
+	<div id="calendar" style="text-align: center">
+		<span class="valign-fix"></span>
+		<img id="loader" class="valign-middle" src="loader.gif" />
+		<div id="loader-status" class="valign-middle text-muted"></div>
 	</div>
 	<footer class="footer">
 		<span class="valign-fix"></span>
 		<span class="text-muted valign-middle">
-			Events scraped from <a href="http://www.canterbury.co.uk">www.canterbury.co.uk</a>
+			Events scraped from <a href="http://www.canterbury.co.uk">www.canterbury.co.uk</a> 
+			&nbsp;&bull;&nbsp;
+			Source available <a href='https://github.com/feltech/CanterburyEvents'>on github</a>
 		</span>
 	</footer>
 </body>
