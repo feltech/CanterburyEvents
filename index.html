@@ -1,0 +1,186 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<link rel="icon" href="/favicon.ico" />
+	<title>Canterbury Events Calendar</title>
+	<link
+		rel='stylesheet'
+		href='https://maxcdn.bootstrapcdn.com/bootswatch/3.3.7/paper/bootstrap.min.css' />
+	<link
+		rel='stylesheet'
+		href='https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.7.0/fullcalendar.min.css' />
+	<link
+		rel='stylesheet'
+		href='http://cdnjs.cloudflare.com/ajax/libs/qtip2/3.0.3/jquery.qtip.min.css' />
+	<script
+		src="https://code.jquery.com/jquery-3.2.1.min.js"
+		integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+		crossorigin="anonymous"
+	></script>
+	<script src='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js'></script>
+	<script src='https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.4/lodash.min.js'></script>
+	<script
+		src='https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.19.3/moment-with-locales.min.js'
+	></script>
+	<script
+		src='https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.7.0/fullcalendar.min.js'
+	></script>
+	<script
+		src="http://cdnjs.cloudflare.com/ajax/libs/qtip2/3.0.3/jquery.qtip.min.js"
+	></script>
+		<script
+		src="https://cdnjs.cloudflare.com/ajax/libs/twix.js/1.2.1/twix.min.js"
+	></script>
+
+	<style>
+		html {
+			position: relative;
+			min-height: 100%;
+		}
+		body {
+			/* Margin bottom by footer height */
+			margin-bottom: 40px;
+		}
+		.footer {
+			/* Set the fixed height of the footer here */
+			height: 40px;
+			text-align: center;
+			position: absolute;
+			bottom: 0;
+			width: 100%;
+		}
+		#loader-container {
+			width: 100%;
+			text-align: center;
+		}
+		#loader {
+			vertical-align: middle;
+		}
+		.valign-fix {
+			display: inline-block;
+			height: 100%;
+			vertical-align: middle
+		}
+		.valign-middle {
+			vertical-align: middle
+		}
+		#calendar {
+			margin: 7px;
+			padding: 7px;
+			box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+			border-radius: 3px;			
+		}
+	</style>
+	<script>
+		moment.locale(window.navigator.userLanguage || window.navigator.language);
+
+		$(document).ready(function () {
+			$.getJSON("events.json").then(function (events) {
+				// Destroy loading spinner.
+				$('#calendar').empty();
+				// Construct calendar.
+				$('#calendar').fullCalendar({
+					events: events,
+					height: "auto",
+					themeSystem: "bootstrap3",
+					firstDay: 1,
+					header: {
+						left: 'prev,next today',
+						center: 'title',
+						right: 'month,agendaWeek,agendaDay'
+					},
+					footer: {
+						left: 'prev,next today'
+					},
+					bootstrapGlyphicons: {
+						close: 'glyphicon-remove',
+						prev: 'glyphicon-chevron-left',
+						next: 'glyphicon-chevron-right',
+						prevYear: 'glyphicon-backward',
+						nextYear: 'glyphicon-forward'
+					},
+					timeFormat: 'HH:mm',
+					views: {
+						month: {
+							timeFormat: 'H(:mm)'
+						},
+						day: {
+							titleFormat: 'ddd MMM Do, YYYY'
+						}
+					},
+					viewRender: function(view, element) {
+						if (view.name === "month")
+							return;
+						var containerCss = {},
+								$allDay = (element).find('.fc-day-grid');
+						containerCss['max-height'] = $(window).height() / 2;
+						containerCss['overflow-y'] = "auto";
+						$allDay.css(containerCss);
+					},
+					eventRender: function(event, element, view) {
+						var title;
+						// (Attempt to) get consistent date format for tooltip title.
+						if (event.allDay) {
+							title = event.start.format("MMM Do");
+						} else if (event.end) {
+							title = event.start.twix(event.end).format({hourFormat: "H"});
+						} else {
+							title = event.start.format("MMM Do, HH:mm");
+						}
+
+						if (view.name === "month") {
+							$(element).css("height", "1.1em");
+							$(element).css("overflow", "hidden");
+						}
+
+						element.qtip({
+							content: {
+								// Show event details.
+								text: event.title.replace(/\n/g, "<br />"),
+								// Show a close button.
+								button: true,
+								// Show title element (necessary for decent style of close button).
+								title: title
+							},
+							// Position at the mouse cursor, but don't move once shown.
+							position: {
+								target: 'mouse',
+								adjust: { mouse: false},
+								viewport: $(document.body)
+							},
+							// Hide when leaving tooltip, not just target element.
+							hide: { fixed: true },
+							style: {
+								classes: "qtip-bootstrap qtip-shadow"
+							}
+						});
+					}
+				});
+			});
+		});
+	</script>
+</head>
+<body>
+	<nav class="navbar navbar-default">
+	<div class="container-fluid">
+		<div class="navbar-header">
+			<a class="navbar-brand" href="#">
+				Canterbury Events <small>- calendar of upcoming events around Canterbury, UK</small>
+			</a>
+		</div>
+	</div>
+	</nav>
+	<div id="calendar">
+		<div id="loader-container"><img id="loader" src="loader.gif" /></div>
+	</div>
+	<footer class="footer">
+		<span class="valign-fix"></span>
+		<span class="text-muted valign-middle">
+			Events scraped from <a href="http://www.canterbury.co.uk">www.canterbury.co.uk</a>
+		</span>
+	</footer>
+</body>
+</html>
