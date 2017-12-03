@@ -3,59 +3,88 @@ const moment = require('moment');
 const md5 = require('md5');
 const express = require('express');
 const _ = require('lodash');
+const fs = require('fs');
+const Job = require('cron').CronJob;
 
+
+const MAX_TIME = 60000;
+
+let logger = require('logger').createLogger(),
+	lastUpdated = 0,
+	isUpdating = false;
+
+logger.format = (level, date, message)=> {
+	return moment(date).format("YYYY-MM-DD HH:mm:ss") + " | " + level.toUpperCase() + " |" + message;
+};
 
 const scrapeEvents = async ()=> {
-	const browser = await puppeteer.launch({
-		args: [
-			'--no-sandbox',
-			'--disable-setuid-sandbox'
-		]
-	});
-
-	const page = await browser.newPage();
-
-	page.on('console', msg => console.log('PAGE LOG:', msg.text));
-
-	await page.goto(
-		'http://www.canterbury.co.uk/events/thedms.aspx?dms=12&msg=', {waitUntil: 'networkidle0'}
-	);
-
-	let calendarEvents = [],
-		numPages = 0;
-
-	console.log("Loaded first page, awaiting render");
-	await page.$("a.pagenextbrowsedata12")
-
-	// Loop pages until we've scraped them all.
-	while (true) {
-		numPages++;
-		console.log("On page " + numPages + ". Awaiting loading spinner");
-		// Ensure loading spinner is gone.
-		await page.waitForSelector("#loadinganimation", {hidden: true});
-		console.log("Scraping events");
-		// Get the next lump of events.
-		calendarEvents.push(...await getEventsForPage(page));
-
-//		if (numPages >= 2)
-//			break;
-
-		if (!await page.$("a.pagenextbrowsedata12"))
-			break;
-
-		console.log("Clicking for next page");
-		// Go to next page
-		await page.click("a.pagenextbrowsedata12");
-		console.log("Awaiting navigation");
-		// Wait for navigation to have finished.
-		await page.waitForNavigation({waitUntil: "networkidle0"});
+	if (isUpdating)
+		return;
+	isUpdating = true;
+	
+	try {
+		const startTime = Date.now();
+		const browser = await puppeteer.launch({
+			args: [
+				'--no-sandbox',
+				'--disable-setuid-sandbox'
+			]
+		});
+	
+		const page = await browser.newPage();
+	
+		page.on('console', msg => logger.info('PAGE LOG:', msg.text));
+	
+		await page.goto(
+			'http://www.canterbury.co.uk/events/thedms.aspx?dms=12&msg=', 
+			{waitUntil: 'networkidle0'}
+		);
+	
+		let calendarEvents = [],
+			numPages = 0;
+	
+		logger.info("Loaded first page, awaiting render");
+		await page.$("a.pagenextbrowsedata12")
+	
+		// Loop pages until we've scraped them all.
+		while (true) {
+			numPages++;
+			logger.info("On page " + numPages + ". Awaiting loading spinner");
+			// Ensure loading spinner is gone.
+			await page.waitForSelector("#loadinganimation", {hidden: true});
+			logger.info("Scraping events");
+			// Get the next lump of events.
+			calendarEvents.push(...await getEventsForPage(page));
+	
+			// Limit running time.
+			if (Date.now() - startTime > MAX_TIME) {
+				break
+			}
+	
+			if (!await page.$("a.pagenextbrowsedata12"))
+				break;
+	
+			logger.info("Clicking for next page");
+			// Go to next page
+			await page.click("a.pagenextbrowsedata12");
+			logger.info("Awaiting navigation");
+			// Wait for navigation to have finished.
+			await page.waitForNavigation({waitUntil: "networkidle0"});
+		}
+	
+		logger.info("Scraped " + numPages + " pages in " + (Date.now() - startTime)/1000 + " secs");
+	
+		browser.close();
+	
+		fs.writeFile(
+			"/app/events.json", JSON.stringify(calendarEvents),
+			()=>logger.info("Written to events.json")
+		);
+		
+		lastUpdated = Date.now()
+	} finally {
+		isUpdating = false;
 	}
-
-	console.log("Scraped " + numPages + " pages");
-
-	browser.close();
-
-	return calendarEvents;
 };
 
 const getEventsForPage = async (page)=> {
@@ -80,7 +109,7 @@ const getEventsForPage = async (page)=> {
 		return events;
 	});
 
-//	console.log("Events raw", events);
+//	logger.info("Events raw", events);
 	let calendarEvents = [];
 
 	for (event of events) {
@@ -118,7 +147,7 @@ const getEventsForPage = async (page)=> {
 		}
 
 		id = md5(title + url);
-		
+
 		do {
 			if (!distinctTimes[0][0])  {
 				let start = moment(currDate),
@@ -162,15 +191,34 @@ const datePatterns = {
 
 };
 
+const oneDay = 3600*24*1000;
+
+// Check every 5 mins if we need to update (have to do this way in case instance is frozen).
+const checkUpdate = new Job("00 */5 * * * *", ()=>{
+	if (Date.now() - lastUpdated > oneDay && !isUpdating) {
+		logger.info("Events list is out of date, updating");
+		scrapeEvents();
+	}
+}, null, true, "Europe/London", null, true);
+
+// Web app to respond to requests.
 const app = express();
 
-app.get('/', async (req, res, next) => {
-	try {
-		res.send(await scrapeEvents())
-	} catch (e) {
-		next(e);
-	}
+// Serve static website.
+app.use(express.static("/app/static", { index: 'index.html' }));
+// Serve generated events json.
+app.use("/events.json", express.static("/app/events.json"));
+// Start the http server.
+const server = app.listen(3000, () => logger.info("Canterbury Events app listening on port 3000"));
+
+// Express doesn't respond to signals without some help.
+["SIGINT", "SIGTERM"].forEach((sigName)=>{
+	process.on(sigName, ()=>{
+		logger.info("Received " + sigName);
+		checkUpdate.stop();
+		server.close(()=> logger.info("HTTP server stopped."));
+	});
 });
 
-app.listen(3000, () => console.log("Canterbury Events app listening on port 3000"));
+
 

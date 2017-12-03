@@ -17,11 +17,13 @@ ADD package.json /tmp/package.json
 RUN cd /tmp && npm install
 RUN mkdir -p /app && cp -a /tmp/node_modules /app/
 
-ADD ./app /app
-
 WORKDIR /app
 
 EXPOSE 3000
 
-CMD ["node", "--inspect=0.0.0.0:9229", "index.js"]
-#CMD ["node", "index.js"]
+ADD ./index.js /app/
+ADD ./static /app/static
+
+
+#CMD ["node", "--inspect=0.0.0.0:9229", "index.js"]
+CMD ["node", "index.js"]

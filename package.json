@@ -8,6 +8,7 @@
 		"lodash": "*",
 		"md5": "*",
 		"express": "*",
-		"puppeteer": "*"
+		"cron": "*",
+		"logger": "*"
 	}
 }
