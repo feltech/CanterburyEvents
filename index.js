@@ -68,7 +68,7 @@ const scrapeEvents = async ()=> {
 				break;
 			}
 
-			if (!await page.$("a.pagination__link"))
+			if (!await page.$("li.pagination__item--next > a.pagination__link"))
 				break;
 
 			logger.info("Clicking for next page");
