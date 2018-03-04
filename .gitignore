@@ -3,3 +3,8 @@
 npm-debug.log
 /node_modules/
 buildrun.sh
+GPATH
+GRTAGS
+GTAGS
+/.index.js.swp
+/.session.vim
