@@ -119,7 +119,7 @@ const getEventsForPage = async (page)=> {
 		return events;
 	});
 
-//	logger.info("Events raw", events);
+	//logger.info("Events raw", events);
 	let calendarEvents = [];
 
 	for (event of events) {
@@ -131,7 +131,7 @@ const getEventsForPage = async (page)=> {
 			dates = event.dates.split("-").map(d=>d.trim()),
 			times = event.times.split("-").map(t=>t.trim()),
 			startDate = moment(dates[0], "Do MMMM YYYY"),
-			endDate = dates.lenth > 1 ? moment(dates[1], "Do MMMM YYYY") : startDate,
+			endDate = dates.length > 1 ? moment(dates[1], "Do MMMM YYYY") : startDate,
 			startTime = moment.duration(times[0]),
 			endTime = times.length > 1 ? moment.duration(times[1]) : startTime,
 			currDate = startDate.clone();
@@ -141,11 +141,11 @@ const getEventsForPage = async (page)=> {
 		do {
 			if (startTime.asMilliseconds() === 0)  {
 				let allDay = true,
-					start = currDate;
+					start = currDate.clone();
 				calendarEvents.push({id, start, title, url, allDay});
 
 			} else {
-				let start = moment(currDate).add(startTime),
+				let start = currDate.clone().add(startTime),
 					calendarEvent = {id, start, title, url};
 				if (endTime - startTime > 0)
 					calendarEvent.end = moment(currDate).add(endTime);
